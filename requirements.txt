@@ -1,12 +1,7 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-sqlalchemy==2.0.23
-psycopg2-binary==2.9.9
-pydantic==2.5.0
-pydantic-settings==2.1.0
-pydantic[email]==2.5.0
-python-dotenv==1.0.0
-yandexcloud==0.244.1
-aioboto3==12.0.0
-aiohttp==3.9.1
+yandexcloud>=0.290.0
+requests>=2.31.0
+python-dotenv>=1.0.0
+fastapi>=0.104.0
+uvicorn>=0.24.0
+pydantic>=2.0.0
 
