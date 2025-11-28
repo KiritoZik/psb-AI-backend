@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+from pathlib import Path
 from typing import Optional, Dict, List
 from dotenv import load_dotenv
 
@@ -49,16 +50,28 @@ class YandexGPTGenerator:
         }
     
     def _create_messages(self, prompt: str, system_prompt: Optional[str] = None) -> List[Dict[str, str]]:
-        """Создает список сообщений для API"""
+        """
+        Создает список сообщений для API
+        :param prompt: Промпт пользователя
+        :param system_prompt: Системный промпт (опционально)
+        :return: Список сообщений в формате API
+        """
         messages = []
         if system_prompt:
             messages.append({"role": "system", "text": system_prompt})
         messages.append({"role": "user", "text": prompt})
         return messages
-    
-    def _create_payload(self, messages: List[Dict[str, str]], temperature: float, 
+
+    def _create_payload(self, messages: List[Dict[str, str]], temperature: float,
                        max_tokens: int, stream: bool = False) -> Dict:
-        """Создает payload для запроса"""
+        """
+        Создает payload для запроса к API
+        :param messages: Список сообщений
+        :param temperature: Температура генерации
+        :param max_tokens: Максимальное количество токенов
+        :param stream: Включить потоковую генерацию
+        :return: Словарь с payload для запроса
+        """
         return {
             "modelUri": self.model_uri,
             "completionOptions": {
@@ -68,18 +81,23 @@ class YandexGPTGenerator:
             },
             "messages": messages
         }
-    
+
     def _get_error_message(self, error: requests.exceptions.HTTPError, payload: Dict) -> str:
-        """Формирует сообщение об ошибке"""
+        """
+        Формирует сообщение об ошибке с деталями
+        :param error: Исключение HTTPError
+        :param payload: Payload запроса для отладки
+        :return: Строка с детальным описанием ошибки
+        """
         try:
             error_detail = error.response.json()
-        except:
+        except Exception:
             error_detail = error.response.text[:200]
-        
+
         return (f"Ошибка YandexGPT API: {error}\n"
                 f"Детали: {error_detail}\n"
                 f"Запрос: {json.dumps(payload, ensure_ascii=False, indent=2)}")
-    
+
     def generate(
         self,
         prompt: str,
@@ -89,7 +107,6 @@ class YandexGPTGenerator:
     ) -> str:
         """
         Генерация текста
-        
         Args:
             prompt: Промпт для генерации
             system_prompt: Системный промпт (опционально)
@@ -121,7 +138,6 @@ class YandexGPTGenerator:
     ):
         """
         Потоковая генерация текста
-        
         Args:
             prompt: Промпт для генерации
             system_prompt: Системный промпт (опционально)
@@ -173,4 +189,83 @@ class YandexGPTGenerator:
 def get_generator() -> YandexGPTGenerator:
     """Создает генератор с настройками из .env"""
     return YandexGPTGenerator()
+
+
+def load_system_prompt(prompt_file: str = "generator/prompt.txt") -> str:
+    """
+    Загружает системный промпт из файла
+    
+    :param prompt_file: Путь к файлу с промптом
+    :return: Содержимое файла с промптом
+    """
+    prompt_path = Path(prompt_file)
+    
+    # Пробуем разные пути
+    if not prompt_path.exists():
+        # Пробуем относительно корня проекта
+        prompt_path = Path(__file__).parent.parent / "generator" / "prompt.txt"
+    
+    if not prompt_path.exists():
+        # Пробуем в той же директории что и generator.py
+        prompt_path = Path(__file__).parent / "prompt.txt"
+    
+    if not prompt_path.exists():
+        raise FileNotFoundError(
+            f"Файл с промптом не найден: {prompt_file}\n"
+            f"Проверьте наличие файла generator/prompt.txt"
+        )
+    
+    with open(prompt_path, "r", encoding="utf-8") as f:
+        return f.read().strip()
+
+
+def generate_reply(
+    text: str,
+    classification: str,
+    fields: Dict,
+    generator: Optional[YandexGPTGenerator] = None,
+    prompt_file: str = "generator/prompt.txt",
+    temperature: float = 0.7,
+    max_tokens: int = 2000
+) -> str:
+    """
+    Генерирует официальный корпоративный ответ на email
+    
+    :param text: Текст входящего email
+    :param classification: Тип email (complaint, regulatory, partner_offer, document_request, notification)
+    :param fields: Извлеченные поля (даты, номера договоров, суммы, ключевые фразы)
+    :param generator: Экземпляр YandexGPTGenerator (если None, создается новый)
+    :param prompt_file: Путь к файлу с системным промптом
+    :param temperature: Температура генерации
+    :param max_tokens: Максимальное количество токенов
+    :return: Сгенерированный официальный ответ
+    """
+    if generator is None:
+        generator = get_generator()
+    
+    # Загружаем системный промпт
+    system_prompt = load_system_prompt(prompt_file)
+    
+    # Формируем промпт с контекстом
+    fields_str = json.dumps(fields, ensure_ascii=False, indent=2) if fields else "Не найдено"
+    
+    user_prompt = f"""Тип письма: {classification}
+
+Извлеченные поля:
+{fields_str}
+
+Текст входящего письма:
+{text}
+
+Сгенерируй официальный корпоративный ответ на это письмо."""
+    
+    # Генерируем ответ
+    reply = generator.generate(
+        prompt=user_prompt,
+        system_prompt=system_prompt,
+        temperature=temperature,
+        max_tokens=max_tokens
+    )
+    
+    return reply.strip()
 

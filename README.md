@@ -2,6 +2,13 @@
 
 Backend для работы с AI моделями через Yandex Cloud YandexGPT API.
 
+## Возможности
+
+- ✅ Подключение к YandexGPT API
+- ✅ Генерация текста через LLM
+- ✅ FastAPI backend с REST API
+- ✅ Обработка писем и генерация ответов
+
 ## Установка
 
 1. Установите зависимости:
@@ -27,7 +34,63 @@ YANDEX_MODEL_URI=gpt://yandexgpt/latest  # опционально
    - В консоли Yandex Cloud откройте нужный каталог
    - Folder ID можно найти в URL или в настройках каталога
 
-## Использование
+## Запуск API сервера
+
+1. Запустите FastAPI сервер:
+```bash
+python app.py
+```
+
+Или с помощью uvicorn:
+```bash
+uvicorn app:app --reload
+```
+
+2. API будет доступен по адресу: `http://localhost:8000`
+
+3. Документация API доступна по адресу: `http://localhost:8000/docs`
+
+## API Endpoints
+
+### POST /api/reply
+Обрабатывает входящее письмо и генерирует ответ через LLM.
+
+**Запрос:**
+```json
+{
+  "text": "Текст входящего письма",
+  "system_prompt": "Опциональный системный промпт",
+  "temperature": 0.7,
+  "max_tokens": 2000
+}
+```
+
+**Ответ:**
+```json
+{
+  "success": true,
+  "reply": "Сгенерированный ответ от LLM"
+}
+```
+
+**Пример использования:**
+```bash
+curl -X POST "http://localhost:8000/api/reply" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "text": "Здравствуйте! Прошу предоставить информацию о ваших услугах.",
+    "temperature": 0.7,
+    "max_tokens": 500
+  }'
+```
+
+### GET /health
+Проверка состояния сервиса.
+
+### GET /
+Информация о API и доступных endpoints.
+
+## Использование (Python библиотека)
 
 ### Простой пример
 
@@ -103,7 +166,36 @@ psb-AI-backend/
 │   ├── __init__.py
 │   ├── generator.py    # Класс YandexGPTGenerator
 │   └── prompt.py       # Класс PromptBuilder
+├── app.py              # FastAPI приложение
 ├── requirements.txt
 ├── example_usage.py
+├── test_api.py         # Тесты API endpoints
+├── test_connection.py  # Тест подключения к YandexGPT
 └── README.md
 ```
+
+## Тестирование API
+
+### Через Python скрипт
+
+Запустите тестовый скрипт для проверки API:
+```bash
+python test_api.py
+```
+
+Убедитесь, что сервер запущен перед тестированием.
+
+### Через Postman
+
+1. **Импортируйте готовую коллекцию:**
+   - Откройте Postman
+   - Нажмите `Import`
+   - Выберите файл `Email_Reply_API.postman_collection.json`
+   - Коллекция будет импортирована со всеми готовыми запросами
+
+2. **Или создайте запросы вручную:**
+   - См. подробную инструкцию в файле `POSTMAN_GUIDE.md`
+
+3. **Настройте переменную:**
+   - В коллекции установите переменную `base_url = http://localhost:8000`
+   - Или измените URL в каждом запросе вручную
