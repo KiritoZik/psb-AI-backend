@@ -19,7 +19,8 @@ class YandexGPTGenerator:
     ):
         """
         Инициализация подключения к YandexGPT
-        
+
+
         Args:
             api_key: API ключ (или из YANDEX_API_KEY)
             folder_id: ID каталога (или из YANDEX_FOLDER_ID)
