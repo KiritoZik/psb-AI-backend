@@ -1,0 +1,5 @@
+scikit-learn>=1.3.0
+pymorphy2>=0.9.0
+pymorphy2-dicts-ru>=2.4.0
+pandas>=2.0.0
+
