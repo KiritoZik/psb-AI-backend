@@ -7,6 +7,12 @@ from .letter import (
     LetterDetailResponse,
     LetterListResponse
 )
+from .history import (
+    GenerateRequest,
+    GenerateResponse,
+    HistoryResponse,
+    HistoryItem
+)
 
 __all__ = [
     "LetterRequest",
@@ -15,6 +21,10 @@ __all__ = [
     "LetterEditRequest",
     "LetterApprovalRequest",
     "LetterDetailResponse",
-    "LetterListResponse"
+    "LetterListResponse",
+    "GenerateRequest",
+    "GenerateResponse",
+    "HistoryResponse",
+    "HistoryItem"
 ]
 

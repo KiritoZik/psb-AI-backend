@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, EmailStr
 from datetime import datetime
 from typing import Optional
-from models.letter import LetterStyle, LetterStatus
+from models.letter import LetterStyle, LetterStatus, LetterUrgency
 
 
 class LetterRequest(BaseModel):
@@ -43,6 +43,7 @@ class LetterDetailResponse(BaseModel):
     original_text: str
     letter_style: LetterStyle
     reply_deadline: datetime
+    urgency: LetterUrgency
     status: LetterStatus
     generated_answer: str
     edited_answer: Optional[str]

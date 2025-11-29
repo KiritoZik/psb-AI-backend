@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import Column, Integer, String, DateTime, Text, Enum as SQLEnum
 from sqlalchemy.sql import func
 from db.session import Base
@@ -12,11 +14,17 @@ class LetterStyle(str, enum.Enum):
     CASUAL = "casual"  # Непринужденный
 
 
+class LetterUrgency(str, enum.Enum):
+    """Срочность письма (соответствует ML‑модели: Low / Medium / High)"""
+    LOW = "low"  # Низкая
+    MEDIUM = "medium"  # Средняя
+    HIGH = "high"  # Высокая
+
+
 class LetterStatus(str, enum.Enum):
     """Статус обработки письма"""
     PENDING_APPROVAL = "pending_approval"  # Ожидает одобрения
     APPROVED = "approved"  # Одобрено
-    REJECTED = "rejected"  # Отклонено
     SENT = "sent"  # Отправлено адресанту
 
 
@@ -30,6 +38,7 @@ class Letter(Base):
     original_text = Column(Text, nullable=False)  # Текст входящего письма
     letter_style = Column(SQLEnum(LetterStyle), nullable=False)  # Стиль письма
     reply_deadline = Column(DateTime(timezone=True), nullable=False, index=True)  # Срок до которого надо отправить ответ
+    urgency = Column(SQLEnum(LetterUrgency), nullable=False, default=LetterUrgency.MEDIUM, index=True)  # Срочность письма
     
     # Статус обработки
     status = Column(SQLEnum(LetterStatus), nullable=False, default=LetterStatus.PENDING_APPROVAL, index=True)
@@ -46,4 +55,24 @@ class Letter(Base):
 
     def __repr__(self):
         return f"<Letter(id={self.id}, sender_name={self.sender_name}, status={self.status}, received_date={self.received_date})>"
+
+
+def to_letter_urgency(raw: Optional[str]) -> LetterUrgency:
+    """
+    Безопасно конвертирует строковое значение (в т.ч. из ML‑модели) в LetterUrgency.
+
+    ML‑классификатор сейчас возвращает три уровня срочности: Low / Medium / High.
+    Функция нормализует регистр и подставляет MEDIUM по умолчанию для любых неизвестных значений.
+    """
+    if not raw:
+        return LetterUrgency.MEDIUM
+
+    norm = raw.strip().lower()
+    mapping = {
+        "low": LetterUrgency.LOW,
+        "medium": LetterUrgency.MEDIUM,
+        "high": LetterUrgency.HIGH,
+    }
+
+    return mapping.get(norm, LetterUrgency.MEDIUM)
 
