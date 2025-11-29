@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import Optional
 
 
@@ -20,9 +21,8 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str = "PSB Bank"
     SMTP_USE_TLS: bool = True
     
-    # Admin settings
-    ADMIN_USERNAME: str = "admin"
-    ADMIN_PASSWORD: str = "changeme"
+    # Admin settings - ОБЯЗАТЕЛЬНО из .env файла
+    ADMIN_PASSWORD: str = Field(..., description="Пароль администратора из .env файла")
     
     # JWT settings
     SECRET_KEY: str = "your-secret-key-change-this-in-production"
@@ -35,8 +35,17 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        env_file_encoding = "utf-8"
         case_sensitive = True
 
 
 settings = Settings()
+
+# Проверка что пароль загружен из .env
+if not settings.ADMIN_PASSWORD or settings.ADMIN_PASSWORD == "":
+    raise ValueError(
+        "ADMIN_PASSWORD должен быть установлен в файле .env!\n"
+        "Создайте файл .env в корне проекта и добавьте:\n"
+        "ADMIN_PASSWORD=ваш-пароль"
+    )
 

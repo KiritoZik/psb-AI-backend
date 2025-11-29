@@ -36,12 +36,12 @@ class Letter(Base):
     sender_name = Column(String(255), nullable=True)  # Имя адресанта
     sender_email = Column(String(255), nullable=True, index=True)  # Email адресанта для отправки ответа
     original_text = Column(Text, nullable=False)  # Текст входящего письма
-    letter_style = Column(SQLEnum(LetterStyle), nullable=False)  # Стиль письма
+    letter_style = Column(SQLEnum(LetterStyle, native_enum=False), nullable=False)  # Стиль письма
     reply_deadline = Column(DateTime(timezone=True), nullable=False, index=True)  # Срок до которого надо отправить ответ
-    urgency = Column(SQLEnum(LetterUrgency), nullable=False, default=LetterUrgency.MEDIUM, index=True)  # Срочность письма
+    urgency = Column(SQLEnum(LetterUrgency, native_enum=False), nullable=False, default=LetterUrgency.MEDIUM, index=True)  # Срочность письма
     
     # Статус обработки
-    status = Column(SQLEnum(LetterStatus), nullable=False, default=LetterStatus.PENDING_APPROVAL, index=True)
+    status = Column(SQLEnum(LetterStatus, native_enum=False), nullable=False, default=LetterStatus.PENDING_APPROVAL, index=True)
     
     # Ответы
     generated_answer = Column(Text, nullable=False)  # Сгенерированный ответ через AI

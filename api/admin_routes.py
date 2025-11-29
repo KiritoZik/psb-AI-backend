@@ -17,7 +17,7 @@ from schemas.letter import (
     LetterApprovalRequest
 )
 from schemas.history import HistoryResponse, HistoryItem
-from models.letter import Letter, LetterStatus, LetterUrgency
+from models.letter import Letter, LetterStatus, LetterUrgency, LetterStyle
 from services.auth import authenticate_admin, create_access_token, get_current_admin
 from services.email_sender import EmailSender
 from core.config import settings
@@ -29,17 +29,17 @@ router = APIRouter()
 async def login(login_request: LoginRequest):
     """
     Эндпоинт для авторизации админа.
-    Принимает логин и пароль, возвращает JWT токен.
+    Принимает пароль, возвращает JWT токен.
     """
-    if not authenticate_admin(login_request.username, login_request.password):
+    if not authenticate_admin(login_request.password):
         raise HTTPException(
             status_code=401,
-            detail="Неверный логин или пароль"
+            detail="Неверный пароль"
         )
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": login_request.username},
+        data={"admin": True},
         expires_delta=access_token_expires
     )
     
@@ -48,17 +48,16 @@ async def login(login_request: LoginRequest):
 
 @router.get("/letters", response_model=LetterListResponse)
 async def get_all_letters(
-    skip: int = Query(0, ge=0, description="Количество записей для пропуска"),
-    limit: int = Query(100, ge=1, le=1000, description="Максимальное количество записей"),
     status: Optional[str] = Query(None, description="Фильтр по статусу"),
     urgency: Optional[str] = Query(None, description="Фильтр по срочности"),
     sort_by: str = Query("urgency", description="Сортировка: urgency, received_date, deadline"),
     sort_order: str = Query("desc", description="Порядок сортировки: asc, desc"),
     db: Session = Depends(get_db),
-    current_admin: str = Depends(get_current_admin)
+    current_admin: bool = Depends(get_current_admin)
 ):
     """
     Получает список всех писем с возможностью фильтрации и сортировки.
+    Возвращает все письма без ограничений.
     Требует авторизации админа.
     
     - **status**: pending_approval, approved, sent
@@ -102,29 +101,60 @@ async def get_all_letters(
             else:
                 letters.sort(key=lambda x: urgency_order.get(x.urgency, 999), reverse=True)
             total = len(letters)
-            letters = letters[skip:skip + limit]
         elif sort_by == "received_date":
             if sort_order == "asc":
                 query = query.order_by(Letter.received_date.asc())
             else:
                 query = query.order_by(Letter.received_date.desc())
-            total = query.count()
-            letters = query.offset(skip).limit(limit).all()
+            letters = query.all()
+            total = len(letters)
         elif sort_by == "deadline":
             if sort_order == "asc":
                 query = query.order_by(Letter.reply_deadline.asc())
             else:
                 query = query.order_by(Letter.reply_deadline.desc())
-            total = query.count()
-            letters = query.offset(skip).limit(limit).all()
+            letters = query.all()
+            total = len(letters)
         else:
             raise HTTPException(
                 status_code=400,
                 detail="Неверное поле для сортировки. Используйте: urgency, received_date, deadline"
             )
         
+        # Преобразуем письма в ответы с обработкой enum
+        items = []
+        for letter in letters:
+            try:
+                # Убеждаемся, что enum значения правильно преобразованы
+                letter_dict = {
+                    "id": letter.id,
+                    "received_date": letter.received_date,
+                    "sender_name": letter.sender_name,
+                    "sender_email": letter.sender_email,
+                    "original_text": letter.original_text,
+                    "letter_style": LetterStyle(letter.letter_style) if isinstance(letter.letter_style, str) else letter.letter_style,
+                    "reply_deadline": letter.reply_deadline,
+                    "urgency": LetterUrgency(letter.urgency) if isinstance(letter.urgency, str) else letter.urgency,
+                    "status": LetterStatus(letter.status) if isinstance(letter.status, str) else letter.status,
+                    "generated_answer": letter.generated_answer,
+                    "edited_answer": letter.edited_answer,
+                    "sent_date": letter.sent_date,
+                    "created_at": letter.created_at,
+                    "updated_at": letter.updated_at
+                }
+                item = LetterDetailResponse(**letter_dict)
+                items.append(item)
+            except Exception as e:
+                # Если не удалось преобразовать, пробуем напрямую
+                try:
+                    item = LetterDetailResponse.model_validate(letter)
+                    items.append(item)
+                except:
+                    # Пропускаем проблемное письмо
+                    continue
+        
         return LetterListResponse(
-            items=[LetterDetailResponse.model_validate(letter) for letter in letters],
+            items=items,
             total=total
         )
         
@@ -138,7 +168,7 @@ async def get_all_letters(
 async def get_letter(
     letter_id: int,
     db: Session = Depends(get_db),
-    current_admin: str = Depends(get_current_admin)
+    current_admin: bool = Depends(get_current_admin)
 ):
     """
     Получает детальную информацию о письме по ID.
@@ -149,7 +179,27 @@ async def get_letter(
     if not letter:
         raise HTTPException(status_code=404, detail="Письмо не найдено")
     
-    return LetterDetailResponse.model_validate(letter)
+    # Преобразуем enum значения если они строки
+    try:
+        letter_dict = {
+            "id": letter.id,
+            "received_date": letter.received_date,
+            "sender_name": letter.sender_name,
+            "sender_email": letter.sender_email,
+            "original_text": letter.original_text,
+            "letter_style": LetterStyle(letter.letter_style) if isinstance(letter.letter_style, str) else letter.letter_style,
+            "reply_deadline": letter.reply_deadline,
+            "urgency": LetterUrgency(letter.urgency) if isinstance(letter.urgency, str) else letter.urgency,
+            "status": LetterStatus(letter.status) if isinstance(letter.status, str) else letter.status,
+            "generated_answer": letter.generated_answer,
+            "edited_answer": letter.edited_answer,
+            "sent_date": letter.sent_date,
+            "created_at": letter.created_at,
+            "updated_at": letter.updated_at
+        }
+        return LetterDetailResponse(**letter_dict)
+    except:
+        return LetterDetailResponse.model_validate(letter)
 
 
 @router.put("/letters/{letter_id}/edit", response_model=LetterDetailResponse)
@@ -157,7 +207,7 @@ async def edit_letter_answer(
     letter_id: int,
     edit_request: LetterEditRequest,
     db: Session = Depends(get_db),
-    current_admin: str = Depends(get_current_admin)
+    current_admin: bool = Depends(get_current_admin)
 ):
     """
     Редактирует ответ письма. Сохраняет отредактированный ответ.
@@ -188,7 +238,7 @@ async def approve_letter(
     letter_id: int,
     approval_request: LetterApprovalRequest,
     db: Session = Depends(get_db),
-    current_admin: str = Depends(get_current_admin)
+    current_admin: bool = Depends(get_current_admin)
 ):
     """
     Одобряет письмо.
@@ -222,7 +272,7 @@ async def approve_letter(
 async def send_letter(
     letter_id: int,
     db: Session = Depends(get_db),
-    current_admin: str = Depends(get_current_admin)
+    current_admin: bool = Depends(get_current_admin)
 ):
     """
     Отправляет одобренное письмо адресанту.
@@ -275,22 +325,45 @@ async def send_letter(
 
 @router.get("/history", response_model=HistoryResponse)
 async def get_history(
-    skip: int = Query(0, ge=0, description="Количество записей для пропуска"),
-    limit: int = Query(100, ge=1, le=1000, description="Максимальное количество записей"),
     db: Session = Depends(get_db),
-    current_admin: str = Depends(get_current_admin)
+    current_admin: bool = Depends(get_current_admin)
 ):
     """
     Возвращает историю всех писем и ответов из базы данных.
+    Возвращает все письма без ограничений.
     Требует авторизации админа.
     """
     try:
         query = db.query(Letter)
-        total = query.count()
-        letters = query.order_by(Letter.received_date.desc()).offset(skip).limit(limit).all()
+        letters = query.order_by(Letter.received_date.desc()).all()
+        total = len(letters)
+        
+        # Преобразуем письма в ответы с обработкой enum
+        items = []
+        for letter in letters:
+            try:
+                letter_dict = {
+                    "id": letter.id,
+                    "received_date": letter.received_date,
+                    "sender_name": letter.sender_name,
+                    "sender_email": letter.sender_email,
+                    "original_text": letter.original_text,
+                    "generated_answer": letter.generated_answer,
+                    "status": LetterStatus(letter.status) if isinstance(letter.status, str) else letter.status,
+                    "created_at": letter.created_at,
+                    "updated_at": letter.updated_at
+                }
+                item = HistoryItem(**letter_dict)
+                items.append(item)
+            except:
+                try:
+                    item = HistoryItem.model_validate(letter)
+                    items.append(item)
+                except:
+                    continue
         
         return HistoryResponse(
-            items=[HistoryItem.model_validate(letter) for letter in letters],
+            items=items,
             total=total
         )
         

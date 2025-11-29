@@ -7,8 +7,7 @@ from pydantic import BaseModel, Field
 
 class LoginRequest(BaseModel):
     """Схема запроса на логин"""
-    username: str = Field(..., description="Логин пользователя", min_length=3)
-    password: str = Field(..., description="Пароль пользователя", min_length=3)
+    password: str = Field(..., description="Пароль администратора", min_length=3)
 
 
 class Token(BaseModel):
@@ -19,5 +18,5 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     """Схема данных токена"""
-    username: str | None = None
+    admin: bool = True
 

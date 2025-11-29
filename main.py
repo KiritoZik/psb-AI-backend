@@ -54,12 +54,19 @@ ml_available = check_ml_availability()
 if not ml_available:
     logger.warning("⚠ ВНИМАНИЕ: ML недоступен, обработка писем будет невозможна!")
 
+# CORS middleware должен быть добавлен ДО роутеров
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:4200",
+        "http://127.0.0.1:4200",
+        "http://localhost:58591",
+        "http://127.0.0.1:58591",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.include_router(router, prefix="/api/v1", tags=["letters"])
